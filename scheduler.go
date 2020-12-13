@@ -18,20 +18,19 @@ type Scheduler interface {
 	Run()
 }
 
-// Schedule calls f (in its own goroutine) according to the execution
-// plan scheduled by s. It returns a Timer that can be used to cancel the
-// call using its Stop method.
+// Schedule calls the sh.Run (in its own goroutine) according to the execution
+// plan scheduled by sh.Next. It returns a Timer that can be used to cancel the
+// call using its Close method.
 //
 // If the caller want to terminate the execution plan halfway, it must
-// stop the timer and ensure that the timer is stopped actually, since in
+// close the timer and wait for the timer is closed actually, since in
 // the current implementation, there is a gap between the expiring and the
-// restarting of the timer. The wait time for ensuring is short since the
-// gap is very small.
+// restarting of the timer. The waits time is short since the gap is very small.
 //
 // Internally, Schedule will ask the first execution time (by calling
-// s.Next()) initially, and create a timer if the execution time is non-zero.
-// Afterwards, it will ask the next execution time each time f is about to
-// be executed, and f will be called at the next execution time if the time
+// sh.Next) initially, and create a timer if the execution time is non-zero.
+// Afterwards, it will ask the next execution time each time task is about to
+// be executed, and task will be called at the next execution time if the time
 // is non-zero.
 func (tw *TimeWheel) Schedule(sh Scheduler) (t *Timer) {
 	next := sh.Next(time.Now())
@@ -51,7 +50,7 @@ func (tw *TimeWheel) Schedule(sh Scheduler) (t *Timer) {
 				tw.submit(t)
 			}
 
-			// Actually execute the task.
+			// Actually execute the task func.
 			//
 			// Like the standard time.AfterFunc (https://golang.org/pkg/time/#AfterFunc),
 			// always execute the timer's task in its own goroutine.
@@ -65,11 +64,22 @@ func (tw *TimeWheel) Schedule(sh Scheduler) (t *Timer) {
 	return
 }
 
+// TimeFunc waits until the appointed time and then calls f in its own goroutine.
+// It returns a Timer that can be used to cancel the call using its Close method.
+func (tw *TimeWheel) TimeFunc(t time.Time, f func()) *Timer {
+	return tw.expireFunc(t.UnixNano(), f)
+}
+
 // AfterFunc waits for the duration to elapse and then calls f in its own goroutine.
-// It returns a Timer that can be used to cancel the call using its Stop method.
+// It returns a Timer that can be used to cancel the call using its Close method.
 func (tw *TimeWheel) AfterFunc(d time.Duration, f func()) *Timer {
+	return tw.expireFunc(time.Now().Add(d).UnixNano(), f)
+}
+
+// expireFunc help creates a Timer of run-once by giving an expiration timestamp.
+func (tw *TimeWheel) expireFunc(expiration int64, f func()) *Timer {
 	t := &Timer{
-		expiration: time.Now().Add(d).UnixNano(),
+		expiration: expiration,
 		task: func() {
 			// Like the standard time.AfterFunc (https://golang.org/pkg/time/#AfterFunc),
 			// always execute the timer's task in its own goroutine.

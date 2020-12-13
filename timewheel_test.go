@@ -39,7 +39,7 @@ func TestNew_Panic(t *testing.T) {
 	})
 }
 
-func TestTimeWheel_AfterFunc(t *testing.T) {
+func TestTimeWheel_expireFunc(t *testing.T) {
 	tw := New(time.Millisecond, 3)
 	go tw.Start()
 	defer tw.Stop()
@@ -64,7 +64,7 @@ func TestTimeWheel_AfterFunc(t *testing.T) {
 			min := start
 			max := start.Add(d + time.Millisecond*5)
 
-			_ = tw.AfterFunc(d, func() { retC <- time.Now() })
+			_ = tw.expireFunc(time.Now().Add(d).UnixNano(), func() { retC <- time.Now() })
 
 			got := <-retC
 
