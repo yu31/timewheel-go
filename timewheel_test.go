@@ -74,14 +74,14 @@ func TestTimeWheel_expireFunc(t *testing.T) {
 	}
 }
 
-type Task struct {
+type Task1 struct {
 	mu    *sync.Mutex
 	seeds []time.Duration
 	index int
 	retC  chan time.Time
 }
 
-func (s *Task) Next(prev time.Time) time.Time {
+func (s *Task1) Next(prev time.Time) time.Time {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -93,7 +93,7 @@ func (s *Task) Next(prev time.Time) time.Time {
 	return next
 }
 
-func (s *Task) Run() {
+func (s *Task1) Run() {
 	s.retC <- time.Now()
 }
 
@@ -115,7 +115,7 @@ func TestTimeWheel_Schedule(t *testing.T) {
 
 	retC := make(chan time.Time)
 
-	s := &Task{
+	s := &Task1{
 		mu:    new(sync.Mutex),
 		seeds: seeds,
 		retC:  retC,

@@ -13,7 +13,7 @@ import (
 type Scheduler interface {
 	// Next returns the next execution time after the given (previous) time.
 	// It will return a zero time if no next time is scheduled.
-	Next(prev time.Time) (next time.Time)
+	Next(time.Time) time.Time
 	// Run will be called when schedule expired.
 	Run()
 }
