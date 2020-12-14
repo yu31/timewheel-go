@@ -1,6 +1,7 @@
 package timewheel
 
 import (
+	"sync"
 	"testing"
 	"time"
 )
@@ -9,64 +10,47 @@ func genD(i int) time.Duration {
 	return time.Duration(i%10000) * time.Millisecond
 }
 
-func BenchmarkTWTimer_StartStop(b *testing.B) {
-	tw := New(time.Millisecond, 3)
-	go tw.Start()
-	defer tw.Stop()
-
-	cases := []struct {
-		name string
-		N    int // the data size (i.e. number of existing timers)
-	}{
-		{"N-1m", 1000000},
-		{"N-5m", 5000000},
-		{"N-10m", 10000000},
-	}
-	for _, c := range cases {
-		b.Run(c.name, func(b *testing.B) {
-			base := make([]*Timer, c.N)
-			for i := 0; i < len(base); i++ {
-				base[i] = tw.AfterFunc(genD(i), func() {})
-			}
-			b.ResetTimer()
-
-			for i := 0; i < b.N; i++ {
-				tw.AfterFunc(time.Second, func() {}).Close()
-			}
-
-			b.StopTimer()
-			for i := 0; i < len(base); i++ {
-				base[i].Close()
-			}
-		})
-	}
+type Task3 struct {
+	interval time.Duration
+	mu       *sync.Mutex
 }
 
-func BenchmarkStdTimer_StartStop(b *testing.B) {
-	cases := []struct {
-		name string
-		N    int // the data size (i.e. number of existing timers)
-	}{
-		{"N-1m", 1000000},
-		{"N-5m", 5000000},
-		{"N-10m", 10000000},
-	}
-	for _, c := range cases {
-		b.Run(c.name, func(b *testing.B) {
-			base := make([]*time.Timer, c.N)
-			for i := 0; i < len(base); i++ {
-				base[i] = time.AfterFunc(genD(i), func() {})
-			}
-			b.ResetTimer()
+func (task *Task3) Next(prev time.Time) time.Time {
+	task.mu.Lock()
+	defer task.mu.Unlock()
+	return prev.Add(task.interval)
+}
 
-			for i := 0; i < b.N; i++ {
-				time.AfterFunc(time.Second, func() {}).Stop()
-			}
+func (task *Task3) Run() {
 
-			b.StopTimer()
-			for i := 0; i < len(base); i++ {
-				base[i].Stop()
-			}
-		})
-	}
+}
+
+//func BenchmarkTimeWheel_Schedule(b *testing.B) {
+//	tw := New(time.Millisecond, 3)
+//	tw.Start()
+//	defer tw.Stop()
+//
+//	for i := 0; i < b.N; i++ {
+//		tw.Schedule(&Task3{
+//			interval: genD(i),
+//			mu:       new(sync.Mutex),
+//		})
+//	}
+//}
+
+func BenchmarkTimeWheel_AfterFunc(b *testing.B) {
+	tw := New(time.Millisecond, 3)
+	tw.Start()
+	defer tw.Stop()
+
+	b.Run("tw", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			tw.AfterFunc(genD(i), func() {})
+		}
+	})
+	b.Run("std", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			time.AfterFunc(genD(i), func() {})
+		}
+	})
 }

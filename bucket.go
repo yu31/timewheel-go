@@ -69,7 +69,6 @@ func (b *bucket) delete(t *Timer) bool {
 
 	b.mu.Unlock()
 	b.flushMu.Unlock()
-
 	return ok
 }
 
@@ -98,7 +97,6 @@ func (b *bucket) flush(submit func(*Timer)) {
 		t.element = nil
 
 		submit(t)
-
 		e = next
 	}
 

@@ -53,7 +53,7 @@ func TestTimeWheel_Schedule_Next(t *testing.T) {
 
 	tw := Default()
 	defer tw.Stop()
-	go tw.Start()
+	tw.Start()
 
 	timer := tw.Schedule(task)
 	require.Equal(t, tw.queue.Len(), 1)

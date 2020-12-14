@@ -19,7 +19,6 @@ const (
 )
 
 // TimeWheel is an implementation of Hierarchical Timing Wheels.
-// Inspired by https://github.com/RussellLuo/timingwheel
 type TimeWheel struct {
 	tick     int64 // in nanoseconds.
 	size     int64 // TimeWheel Size.
@@ -48,7 +47,6 @@ func New(tick time.Duration, size int64) *TimeWheel {
 	if size < 1 {
 		panic("timewheel: size must be greater than 0")
 	}
-
 	return newTimeWheel(int64(tick), size, time.Now().UnixNano(), dqueue.Default())
 }
 
@@ -74,12 +72,12 @@ func newTimeWheel(tick int64, size int64, start int64, queue *dqueue.DQueue) *Ti
 	}
 }
 
-// Start starts the current timing wheel.
+// Start starts the current time wheel.
 func (tw *TimeWheel) Start() {
-	tw.queue.Receive(tw.process)
+	tw.queue.Consume(tw.process)
 }
 
-// Stop stops the current timing wheel.
+// Stop stops the current time wheel.
 //
 // If there is any timer's task being running in its own goroutine, Stop does
 // not wait for the task to complete before returning. If the caller needs to
@@ -115,6 +113,7 @@ func (tw *TimeWheel) process(msg *dqueue.Message) {
 // timer's task if it has been expired.
 func (tw *TimeWheel) submit(t *Timer) {
 	if !tw.add(t) {
+
 		t.task()
 	}
 }

@@ -41,7 +41,7 @@ func TestNew_Panic(t *testing.T) {
 
 func TestTimeWheel_expireFunc(t *testing.T) {
 	tw := New(time.Millisecond, 3)
-	go tw.Start()
+	tw.Start()
 	defer tw.Stop()
 
 	seeds := []time.Duration{
@@ -99,7 +99,7 @@ func (s *Task1) Run() {
 
 func TestTimeWheel_Schedule(t *testing.T) {
 	tw := New(time.Millisecond, 20)
-	go tw.Start()
+	tw.Start()
 	defer tw.Stop()
 
 	seeds := []time.Duration{
