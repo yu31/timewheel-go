@@ -6,8 +6,11 @@
 package timewheel
 
 import (
+	"fmt"
 	"time"
 )
+
+const minTimeInterval = int64(time.Microsecond)
 
 // Scheduler represents the execution plan of a task.
 type Scheduler interface {
@@ -32,11 +35,21 @@ type Scheduler interface {
 // Afterwards, it will ask the next execution time each time task is about to
 // be executed, and task will be called at the next execution time if the time
 // is non-zero.
+//
+// NOTICE: The minimum time interval between each task is 1µs to prevents GoLang runtime 'stack overflow'.
+// And it will be crashing if the time interval less than 1µs.
 func (tw *TimeWheel) Schedule(sh Scheduler) (t *Timer) {
-	next := sh.Next(time.Now())
+	now := time.Now()
+	next := sh.Next(now)
+
+	// No time is scheduled, return nil.
 	if next.IsZero() {
-		// No time is scheduled, return nil.
 		return
+	}
+	// To prevents the GoLang runtime 'stack overflow'.
+	diff := next.UnixNano() - now.UnixNano()
+	if diff < minTimeInterval {
+		panic(fmt.Errorf("timewheel: time interval cannot less than 1µs, you privodes %dns", diff))
 	}
 
 	t = &Timer{
@@ -45,6 +58,11 @@ func (tw *TimeWheel) Schedule(sh Scheduler) (t *Timer) {
 			// Schedule the task to execute at the next time if possible.
 			next := sh.Next(time.Unix(0, t.expiration))
 			if !next.IsZero() {
+				// To prevents the GoLang runtime 'stack overflow'.
+				diff := next.UnixNano() - t.expiration
+				if diff < minTimeInterval {
+					panic(fmt.Errorf("timewheel: time interval cannot less than 1µs, you privodes %dns", diff))
+				}
 				// Resubmit the timer to next cycle.
 				t.expiration = next.UnixNano()
 				tw.submit(t)
@@ -81,6 +99,8 @@ func (tw *TimeWheel) expireFunc(expiration int64, f func()) *Timer {
 	t := &Timer{
 		expiration: expiration,
 		task: func() {
+			// Actually execute the task func.
+			//
 			// Like the standard time.AfterFunc (https://golang.org/pkg/time/#AfterFunc),
 			// always execute the timer's task in its own goroutine.
 			go f()

@@ -40,6 +40,7 @@ func Default() *TimeWheel {
 }
 
 // New creates an TimeWheel with the given tick and wheel size.
+// The value of tick must >= 1ms, the size must >= 1.
 func New(tick time.Duration, size int64) *TimeWheel {
 	if tick < time.Millisecond {
 		panic("timewheel: tick must be greater than or equal to 1ms")
@@ -72,7 +73,13 @@ func newTimeWheel(tick int64, size int64, start int64, queue *dqueue.DQueue) *Ti
 	}
 }
 
-// Start starts the current time wheel.
+// // Wait can used for blocking until TimeWheel stopped.
+func (tw *TimeWheel) Wait() {
+	tw.queue.Wait()
+}
+
+// Start starts the current time wheel in a goroutine.
+// You can call the Wait method to blocks the main process after.
 func (tw *TimeWheel) Start() {
 	tw.queue.Consume(tw.process)
 }
@@ -113,7 +120,6 @@ func (tw *TimeWheel) process(msg *dqueue.Message) {
 // timer's task if it has been expired.
 func (tw *TimeWheel) submit(t *Timer) {
 	if !tw.add(t) {
-
 		t.task()
 	}
 }
