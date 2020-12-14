@@ -64,7 +64,8 @@ func TestTimeWheel_expireFunc(t *testing.T) {
 			min := start
 			max := start.Add(d + time.Millisecond*5)
 
-			_ = tw.expireFunc(time.Now().Add(d).UnixNano(), func() { retC <- time.Now() })
+			timer := tw.expireFunc(time.Now().Add(d).UnixNano(), func() { retC <- time.Now() })
+			require.NotNil(t, timer)
 
 			got := <-retC
 
@@ -124,7 +125,8 @@ func TestTimeWheel_Schedule(t *testing.T) {
 	lapse := time.Duration(0)
 	start := time.Now()
 
-	_ = tw.Schedule(s)
+	timer := tw.Schedule(s)
+	require.NotNil(t, timer)
 
 	for _, d := range seeds {
 		lapse += d

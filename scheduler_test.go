@@ -9,81 +9,24 @@ import (
 )
 
 type Task3 struct {
-	First  time.Duration
-	Second time.Duration
-	mu     sync.Mutex
-	n      int
 }
 
 func (task *Task3) Next(prev time.Time) time.Time {
-	task.mu.Lock()
-	defer task.mu.Unlock()
-
-	if task.n == 0 {
-		task.n++
-		return prev.Add(task.First)
-	}
-	task.n++
-	return prev.Add(task.Second)
+	return time.Time{}
 }
 
 func (task *Task3) Run() {
 }
 
-func TestTimeWheel_Schedule_Panic(t *testing.T) {
-	t.Run("case1", func(t *testing.T) {
-		tw := Default()
-		tw.Start()
-		defer tw.Stop()
-
-		require.Panics(t, func() {
-			tw.Schedule(&Task3{First: 0})
-		})
-		require.Panics(t, func() {
-			tw.Schedule(&Task3{First: time.Nanosecond * 10})
-		})
-		require.Panics(t, func() {
-			tw.Schedule(&Task3{First: time.Nanosecond * 999})
-		})
-		require.NotPanics(t, func() {
-			tw.Schedule(&Task3{First: time.Microsecond, Second: time.Microsecond})
-		})
-	})
-
-	// Should panic.
-	t.Run("case2", func(t *testing.T) {
-		task := &Task3{
-			First:  time.Microsecond,
-			Second: time.Nanosecond * 10,
-		}
-		require.Panics(t, func() {
-			tw := Default()
-			tw.Start()
-			defer tw.Stop()
-
-			tw.Schedule(task)
-
-			tw.Wait()
-		})
-		require.Equal(t, task.n, 2)
-	})
-
-	t.Run("case3", func(t *testing.T) {
-		task := &Task3{
-			First:  time.Microsecond,
-			Second: time.Millisecond,
-		}
-		require.NotPanics(t, func() {
-			tw := Default()
-			tw.Start()
-			defer tw.Stop()
-
-			tw.Schedule(task)
-
-			time.Sleep(time.Millisecond * 100)
-		})
-		require.Greater(t, task.n, 1)
-	})
+func TestTimeWheel_Schedule_Zero(t *testing.T) {
+	tw := Default()
+	timer := tw.Schedule(&Task3{})
+	require.NotNil(t, timer)
+	require.Equal(t, timer.expiration, int64(0))
+	require.Nil(t, timer.task)
+	require.True(t, timer.b == nil)
+	require.Nil(t, timer.element)
+	timer.Close()
 }
 
 type Task2 struct {

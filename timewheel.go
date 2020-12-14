@@ -73,15 +73,15 @@ func newTimeWheel(tick int64, size int64, start int64, queue *dqueue.DQueue) *Ti
 	}
 }
 
-// // Wait can used for blocking until TimeWheel stopped.
-func (tw *TimeWheel) Wait() {
-	tw.queue.Wait()
-}
-
 // Start starts the current time wheel in a goroutine.
 // You can call the Wait method to blocks the main process after.
 func (tw *TimeWheel) Start() {
 	tw.queue.Consume(tw.process)
+}
+
+// Wait can used for blocking until TimeWheel stopped.
+func (tw *TimeWheel) Wait() {
+	tw.queue.Wait()
 }
 
 // Stop stops the current time wheel.
