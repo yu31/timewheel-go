@@ -79,11 +79,6 @@ func (tw *TimeWheel) Start() {
 	tw.queue.Consume(tw.process)
 }
 
-// Wait can used for blocking until TimeWheel stopped.
-func (tw *TimeWheel) Wait() {
-	tw.queue.Wait()
-}
-
 // Stop stops the current time wheel.
 //
 // If there is any timer's task being running in its own goroutine, Stop does
