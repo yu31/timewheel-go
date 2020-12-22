@@ -7,6 +7,8 @@ github.com/yu31/dqueue v0.0.0-20201217022342-ad97ef17b75c h1:7VNv6t7W7EWbmAM3BQB
 github.com/yu31/dqueue v0.0.0-20201217022342-ad97ef17b75c/go.mod h1:zh3MJPNXl2hz2Rk9wZ71Vh4iIwWCAiMNcgfnsnbrskI=
 github.com/yu31/dqueue v0.0.0-20201222182041-2da3e84ddc32 h1:qbNnx58KNSg9TgNl5dd8DTMKj+YxTbVyPvxI5HnIbeU=
 github.com/yu31/dqueue v0.0.0-20201222182041-2da3e84ddc32/go.mod h1:zh3MJPNXl2hz2Rk9wZ71Vh4iIwWCAiMNcgfnsnbrskI=
+github.com/yu31/dqueue v0.0.0-20201222193016-dd941aa76798 h1:sgBcxX+zpPLKP1eBhOQBA8FZ60CeZ5lmDqwmU0GzTNI=
+github.com/yu31/dqueue v0.0.0-20201222193016-dd941aa76798/go.mod h1:zh3MJPNXl2hz2Rk9wZ71Vh4iIwWCAiMNcgfnsnbrskI=
 github.com/yu31/gostructs v0.0.0-20201217022118-6e9ecbe366b6 h1:iPae+TDDrbQoQJKfjyg+GOj53ijYfi5e4AvM2Mgp+wM=
 github.com/yu31/gostructs v0.0.0-20201217022118-6e9ecbe366b6/go.mod h1:2nxYgIcGxEN5nRc3n3pRusl7ys+oEM14uInKe+WtouQ=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405 h1:yhCVgyC4o1eVCa2tZl7eS0r+SDo693bJlVdllGtEeKM=
