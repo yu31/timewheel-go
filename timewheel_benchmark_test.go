@@ -9,15 +9,15 @@ func genInterval(i int) time.Duration {
 	return time.Duration((i%10000)+1) * time.Millisecond
 }
 
-type Task4 struct {
+type TaskBench1 struct {
 	interval time.Duration
 }
 
-func (task *Task4) Next(prev time.Time) time.Time {
+func (task *TaskBench1) Next(prev time.Time) time.Time {
 	return prev.Add(task.interval)
 }
 
-func (task *Task4) Run() {
+func (task *TaskBench1) Run() {
 }
 
 func BenchmarkTimeWheel_Schedule(b *testing.B) {
@@ -26,7 +26,7 @@ func BenchmarkTimeWheel_Schedule(b *testing.B) {
 	defer tw.Stop()
 
 	for i := 0; i < b.N; i++ {
-		tw.Schedule(&Task4{
+		tw.Schedule(&TaskBench1{
 			interval: genInterval(i),
 		})
 	}
