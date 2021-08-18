@@ -11,7 +11,7 @@ import (
 	"sync/atomic"
 )
 
-// Each tick(time interval) have a bucket to store all timers(tasks) that belonging to this tick.
+// Each tick(time span) have a bucket to store all timers(tasks) that belonging to this tick.
 type bucket struct {
 	expiration int64
 	timers     *list.List

@@ -30,7 +30,7 @@ lint:
 check: format vet lint
 
 .PHONY: test
-test:
+test: check
 	@[[ ${VERBOSE} = "yes" ]] && set -x; go test -race -v -test.count=1 -failfast ./...;
 
 .PHONY: bench

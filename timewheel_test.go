@@ -1,12 +1,11 @@
 package timewheel
 
 import (
-	"fmt"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"github.com/yu31/dqueue"
 )
 
 func TestNew(t *testing.T) {
@@ -16,7 +15,7 @@ func TestNew(t *testing.T) {
 	require.NotNil(t, tw)
 	require.Equal(t, tw.tick, int64(tick))
 	require.Equal(t, tw.size, size)
-	require.Equal(t, tw.interval, int64(tick)*size)
+	require.Equal(t, tw.span, int64(tick)*size)
 	require.Greater(t, tw.current, int64(0))
 	require.Equal(t, len(tw.buckets), int(size))
 	require.NotNil(t, tw.queue)
@@ -39,163 +38,48 @@ func TestNew_Panic(t *testing.T) {
 	})
 }
 
-func TestTimeWheel_expireFunc(t *testing.T) {
-	tw := New(time.Millisecond, 3)
-	tw.Start()
-	defer tw.Stop()
+func Test_newTimeWheel(t *testing.T) {
+	start := time.Now().UnixNano()
+	tw := newTimeWheel(int64(time.Second), 3, start, dqueue.Default())
+	require.Less(t, tw.current, start)
+}
 
+func TestTimeWheel_add(t *testing.T) {
 	seeds := []time.Duration{
-		time.Millisecond * 1,
-		time.Millisecond * 5,
-		time.Millisecond * 10,
-		time.Millisecond * 50,
-		time.Millisecond * 100,
-		time.Millisecond * 400,
-		time.Millisecond * 500,
-		time.Second * 1,
+		1 * time.Millisecond,
+		10 * time.Millisecond,
+		16 * time.Millisecond,
+		46 * time.Millisecond,
 	}
 
-	for _, d := range seeds {
-		t.Run(d.String(), func(t *testing.T) {
-			retC := make(chan time.Time)
+	tick := int64(time.Millisecond * 5)
+	now := time.Now()
 
-			start := time.Now()
+	tw := newTimeWheel(tick, 3, now.UnixNano(), dqueue.Default())
 
-			min := start
-			max := start.Add(d + time.Millisecond*5)
+	t1 := &Timer{expiration: now.Add(seeds[0]).UnixNano()}
+	require.False(t, tw.add(t1))
+	require.Nil(t, t1.getBucket())
+	require.Nil(t, t1.element)
+	require.Nil(t, (*TimeWheel)(tw.overflow))
 
-			timer := tw.expireFunc(time.Now().Add(d).UnixNano(), func() { retC <- time.Now() })
-			require.NotNil(t, timer)
+	t2 := &Timer{expiration: now.Add(seeds[1]).UnixNano()}
+	require.True(t, tw.add(t2))
+	require.NotNil(t, t2.getBucket())
+	require.NotNil(t, t2.element)
+	require.Nil(t, (*TimeWheel)(tw.overflow))
 
-			got := <-retC
+	t3 := &Timer{expiration: now.Add(seeds[2]).UnixNano()}
+	require.True(t, tw.add(t3))
+	require.NotNil(t, t3.getBucket())
+	require.NotNil(t, t3.element)
+	require.NotNil(t, (*TimeWheel)(tw.overflow))
+	require.Nil(t, (*TimeWheel)((*TimeWheel)(tw.overflow).overflow))
 
-			require.Greater(t, got.UnixNano(), min.UnixNano(), fmt.Sprintf("%s: got: %s, want: %s", d.String(), got.String(), min.String()))
-			require.Less(t, got.UnixNano(), max.UnixNano(), fmt.Sprintf("%s: got: %s, want: %s", d.String(), got.String(), max.String()))
-		})
-	}
-}
-
-type Task1 struct {
-	mu    *sync.Mutex
-	seeds []time.Duration
-	index int
-	retC  chan time.Time
-}
-
-func (s *Task1) Next(prev time.Time) time.Time {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if s.index >= len(s.seeds) {
-		return time.Time{}
-	}
-	next := prev.Add(s.seeds[s.index])
-	s.index += 1
-	return next
-}
-
-func (s *Task1) Run() {
-	s.retC <- time.Now()
-}
-
-func TestTimeWheel_Schedule_Next(t *testing.T) {
-	tw := New(time.Millisecond, 20)
-	tw.Start()
-	defer tw.Stop()
-
-	seeds := []time.Duration{
-		1 * time.Millisecond,   // start + 1ms
-		4 * time.Millisecond,   // start + 5ms
-		5 * time.Millisecond,   // start + 10ms
-		40 * time.Millisecond,  // start + 50ms
-		50 * time.Millisecond,  // start + 100ms
-		400 * time.Millisecond, // start + 400ms
-		500 * time.Millisecond, // start + 500ms
-		501 * time.Millisecond, // start + 501ms
-	}
-
-	retC := make(chan time.Time)
-
-	s := &Task1{
-		mu:    new(sync.Mutex),
-		seeds: seeds,
-		retC:  retC,
-	}
-
-	lapse := time.Duration(0)
-	start := time.Now()
-
-	timer := tw.Schedule(s)
-	require.NotNil(t, timer)
-
-	for _, d := range seeds {
-		lapse += d
-		min := start
-		max := start.Add(lapse + time.Millisecond*5)
-
-		got := <-retC
-
-		require.Greater(t, got.UnixNano(), min.UnixNano(), fmt.Sprintf("%s: got: %s, want: %s", d.String(), got.String(), min.String()))
-		require.Less(t, got.UnixNano(), max.UnixNano(), fmt.Sprintf("%s: got: %s, want: %s", d.String(), got.String(), max.String()))
-	}
-}
-
-type Task2 struct {
-	interval time.Duration
-	count    int
-	mu       *sync.Mutex
-	wg       *sync.WaitGroup
-	t        *testing.T
-	zero     bool
-}
-
-func (task *Task2) Next(prev time.Time) time.Time {
-	task.mu.Lock()
-	defer task.mu.Unlock()
-
-	require.False(task.t, prev.IsZero())
-
-	if task.count <= 1 {
-		task.zero = true
-		return time.Time{}
-	}
-	return prev.Add(task.interval)
-}
-
-func (task *Task2) Run() {
-	task.mu.Lock()
-	defer task.mu.Unlock()
-
-	task.count--
-	task.wg.Done()
-}
-
-// For test the previous is not zero in Next.
-func TestTimeWheel_Schedule_Run(t *testing.T) {
-	task := &Task2{
-		interval: time.Millisecond * 5,
-		count:    10,
-		mu:       new(sync.Mutex),
-		wg:       new(sync.WaitGroup),
-		t:        t,
-		zero:     false,
-	}
-
-	task.wg.Add(task.count)
-
-	tw := Default()
-	defer tw.Stop()
-	tw.Start()
-
-	timer := tw.Schedule(task)
-	require.Equal(t, tw.queue.Len(), 1)
-
-	task.wg.Wait()
-
-	require.True(t, task.zero)
-	require.Equal(t, task.count, 0)
-	// The task not be re-insert to the queue if return zero time in task.Next.
-	require.Equal(t, tw.queue.Len(), 0)
-
-	timer.Close()
+	t4 := &Timer{expiration: now.Add(seeds[3]).UnixNano()}
+	require.True(t, tw.add(t4))
+	require.NotNil(t, t4.getBucket())
+	require.NotNil(t, t4.element)
+	require.NotNil(t, (*TimeWheel)(tw.overflow))
+	require.NotNil(t, (*TimeWheel)((*TimeWheel)(tw.overflow).overflow))
 }

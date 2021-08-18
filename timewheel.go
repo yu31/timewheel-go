@@ -20,10 +20,10 @@ const (
 
 // TimeWheel is an implementation of Hierarchical Timing Wheels.
 type TimeWheel struct {
-	tick     int64 // in nanoseconds.
-	size     int64 // TimeWheel Size.
-	interval int64 // in nanoseconds.
-	current  int64 // in nanoseconds.
+	tick    int64 // The time span of each unit, in nanoseconds.
+	size    int64 // The size of time wheel of each layer.
+	span    int64 // The time span of each layer, in nanoseconds.
+	current int64 // The current time of time wheel, in nanoseconds.
 
 	buckets []*bucket
 	queue   *dqueue.DQueue
@@ -51,21 +51,12 @@ func New(tick time.Duration, size int64) *TimeWheel {
 	return newTimeWheel(int64(tick), size, time.Now().UnixNano(), dqueue.Default())
 }
 
-// truncate returns the result of rounding x toward zero to a multiple of m.
-// If m <= 0, Truncate returns x unchanged.
-func truncate(x, m int64) int64 {
-	if m <= 0 {
-		return x
-	}
-	return x - x%m
-}
-
 // newTimeWheel is an internal helper function that really creates an TimeWheel.
 func newTimeWheel(tick int64, size int64, start int64, queue *dqueue.DQueue) *TimeWheel {
 	return &TimeWheel{
 		tick:     tick,
 		size:     size,
-		interval: tick * size,
+		span:     tick * size,
 		current:  truncate(start, tick),
 		buckets:  createBuckets(int(size)),
 		queue:    queue,
@@ -88,6 +79,14 @@ func (tw *TimeWheel) Stop() {
 	tw.queue.Close()
 }
 
+// process the expiration's bucket
+func (tw *TimeWheel) process(msg *dqueue.Message) {
+	b := msg.Value.(*bucket)
+	tw.advance(b.getExpiration())
+
+	b.flush(tw.submit)
+}
+
 // advance push the clock forward.
 func (tw *TimeWheel) advance(expiration int64) {
 	current := atomic.LoadInt64(&tw.current)
@@ -103,19 +102,15 @@ func (tw *TimeWheel) advance(expiration int64) {
 	}
 }
 
-// process the expiration's bucket
-func (tw *TimeWheel) process(msg *dqueue.Message) {
-	b := msg.Value.(*bucket)
-	tw.advance(b.getExpiration())
-
-	b.flush(tw.submit)
-}
-
 // submit inserts the timer t into the current timing wheel, or run the
 // timer's task if it has been expired.
 func (tw *TimeWheel) submit(t *Timer) {
 	if !tw.add(t) {
-		t.task()
+		// Actually execute the task func.
+		//
+		// Like the standard time.AfterFunc (https://golang.org/pkg/time/#AfterFunc),
+		// always execute the timer's task in its own goroutine.
+		go t.task()
 	}
 }
 
@@ -126,14 +121,14 @@ func (tw *TimeWheel) add(t *Timer) bool {
 	if t.expiration < current+tw.tick {
 		// Already expired.
 		return false
-	} else if t.expiration < current+tw.interval {
+	} else if t.expiration < current+tw.span {
 		// Put it into its own bucket.
-		virtualID := t.expiration / tw.tick
-		b := tw.buckets[virtualID%tw.size]
+		virtualId := t.expiration / tw.tick
+		b := tw.buckets[virtualId%tw.size]
 		b.insert(t)
 
 		// Set the bucket expiration timestamp.
-		if b.setExpiration(virtualID * tw.tick) {
+		if b.setExpiration(virtualId * tw.tick) {
 			// The bucket needs to be enqueued since it was an expired bucket.
 			// We only need to enqueue the bucket when its expiration time has changed,
 			// i.e. the wheel has advanced and this bucket get reused with a new expiration.
@@ -144,13 +139,13 @@ func (tw *TimeWheel) add(t *Timer) bool {
 		}
 		return true
 	} else {
-		// Out of the interval. Put it into the overflow TimeWheel.
+		// Out of the span. Put it into the overflow TimeWheel.
 		var overflow unsafe.Pointer
 
 		overflow = atomic.LoadPointer(&tw.overflow)
 		if overflow == nil {
 			// Creates and save overflow TimeWheel.
-			ntw := newTimeWheel(tw.interval, tw.size, current, tw.queue)
+			ntw := newTimeWheel(tw.span, tw.size, current, tw.queue)
 			atomic.CompareAndSwapPointer(&tw.overflow, nil, unsafe.Pointer(ntw))
 
 			// Load safe to avoid concurrent operations.
