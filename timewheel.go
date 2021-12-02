@@ -67,7 +67,7 @@ func newTimeWheel(tick int64, size int64, start int64, queue *dqueue.DQueue) *Ti
 // Start starts the current time wheel in a goroutine.
 // You can call the Wait method to blocks the main process after.
 func (tw *TimeWheel) Start() {
-	tw.queue.Consume(tw.process)
+	tw.queue.Start(tw.process)
 }
 
 // Stop stops the current time wheel.
@@ -76,7 +76,7 @@ func (tw *TimeWheel) Start() {
 // not wait for the task to complete before returning. If the caller needs to
 // know whether the task is completed, it must coordinate with the task explicitly.
 func (tw *TimeWheel) Stop() {
-	tw.queue.Close()
+	tw.queue.Stop()
 }
 
 // process the expiration's bucket

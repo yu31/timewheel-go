@@ -10,6 +10,8 @@ github.com/stretchr/testify v1.7.0 h1:nwc3DEeHmmLAfoZucVR881uASk0Mfjw8xYJ99tb5Cc
 github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/yu31/dqueue v0.0.0-20201222193016-dd941aa76798 h1:sgBcxX+zpPLKP1eBhOQBA8FZ60CeZ5lmDqwmU0GzTNI=
 github.com/yu31/dqueue v0.0.0-20201222193016-dd941aa76798/go.mod h1:zh3MJPNXl2hz2Rk9wZ71Vh4iIwWCAiMNcgfnsnbrskI=
+github.com/yu31/dqueue v0.0.0-20211202061341-3abaa50540de h1:OoysOhSvyZxqbiGxoZlz70G1E0oSQOLhi0PP6Se8fGo=
+github.com/yu31/dqueue v0.0.0-20211202061341-3abaa50540de/go.mod h1:zh3MJPNXl2hz2Rk9wZ71Vh4iIwWCAiMNcgfnsnbrskI=
 github.com/yu31/gostructs v0.0.0-20201217022118-6e9ecbe366b6 h1:iPae+TDDrbQoQJKfjyg+GOj53ijYfi5e4AvM2Mgp+wM=
 github.com/yu31/gostructs v0.0.0-20201217022118-6e9ecbe366b6/go.mod h1:2nxYgIcGxEN5nRc3n3pRusl7ys+oEM14uInKe+WtouQ=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405 h1:yhCVgyC4o1eVCa2tZl7eS0r+SDo693bJlVdllGtEeKM=
