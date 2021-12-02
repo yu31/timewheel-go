@@ -9,13 +9,17 @@ import (
 	"time"
 )
 
+type RunFunc func() error
+
 // Schedule represents the execution plan of a task.
 type Schedule interface {
 	// Next returns the next execution time after the given (previous) time.
 	// It will return a zero time if no next time is scheduled.
 	Next(time.Time) time.Time
+
 	// Run will be called when schedule expired.
-	Run()
+	// Notice: timewheel will not process any errors, And only gives it to the caller.
+	Run() error
 }
 
 // Schedule calls the sh.Run (in its own goroutine) according to the execution
@@ -33,24 +37,24 @@ type Schedule interface {
 // be executed, and task will be called at the next execution time if the time
 // is non-zero.
 func (tw *TimeWheel) Schedule(sh Schedule) *Timer {
-	next := sh.Next(time.Now())
-	if next.IsZero() {
+	next1 := sh.Next(time.Now())
+	if next1.IsZero() {
 		// No time is scheduled, return empty timer.
 		return &Timer{}
 	}
 	var t *Timer
 	t = &Timer{
-		expiration: next.UnixNano(),
-		task: func() {
+		expiration: next1.UnixNano(),
+		task: func() error {
 			// Schedule the task to execute at the next time if possible.
-			next := sh.Next(time.Unix(0, t.expiration))
-			if !next.IsZero() {
+			next2 := sh.Next(time.Unix(0, t.expiration))
+			if !next2.IsZero() {
 				// Resubmit the timer to next cycle.
-				t.expiration = next.UnixNano()
+				t.expiration = next2.UnixNano()
 				tw.submit(t)
 			}
 
-			sh.Run()
+			return sh.Run()
 		},
 		b:       nil,
 		element: nil,
@@ -62,18 +66,18 @@ func (tw *TimeWheel) Schedule(sh Schedule) *Timer {
 
 // TimeFunc waits until the appointed time and then calls f in its own goroutine.
 // It returns a Timer that can be used to cancel the call using its Close method.
-func (tw *TimeWheel) TimeFunc(t time.Time, f func()) *Timer {
+func (tw *TimeWheel) TimeFunc(t time.Time, f RunFunc) *Timer {
 	return tw.expireFunc(t.UnixNano(), f)
 }
 
 // AfterFunc waits for the duration to elapse and then calls f in its own goroutine.
 // It returns a Timer that can be used to cancel the call using its Close method.
-func (tw *TimeWheel) AfterFunc(d time.Duration, f func()) *Timer {
+func (tw *TimeWheel) AfterFunc(d time.Duration, f RunFunc) *Timer {
 	return tw.expireFunc(time.Now().Add(d).UnixNano(), f)
 }
 
 // expireFunc help creates a Timer of run-once by giving an expiration timestamp.
-func (tw *TimeWheel) expireFunc(expiration int64, f func()) *Timer {
+func (tw *TimeWheel) expireFunc(expiration int64, f RunFunc) *Timer {
 	t := &Timer{
 		expiration: expiration,
 		task:       f,

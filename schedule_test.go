@@ -34,7 +34,7 @@ func TestTimeWheel_expireFunc(t *testing.T) {
 			min := start
 			max := start.Add(d + time.Millisecond*5)
 
-			timer := tw.expireFunc(time.Now().Add(d).UnixNano(), func() { retC <- time.Now() })
+			timer := tw.expireFunc(time.Now().Add(d).UnixNano(), func() error { retC <- time.Now(); return nil })
 			require.NotNil(t, timer)
 
 			got := <-retC
@@ -64,8 +64,9 @@ func (s *Task1) Next(prev time.Time) time.Time {
 	return next
 }
 
-func (s *Task1) Run() {
+func (s *Task1) Run() error {
 	s.retC <- time.Now()
+	return nil
 }
 
 func TestTimeWheel_Schedule_Next(t *testing.T) {
@@ -132,12 +133,13 @@ func (task *Task2) Next(prev time.Time) time.Time {
 	return prev.Add(task.interval)
 }
 
-func (task *Task2) Run() {
+func (task *Task2) Run() error {
 	task.mu.Lock()
 	defer task.mu.Unlock()
 
 	task.count--
 	task.wg.Done()
+	return nil
 }
 
 // For test the previous is not zero in Next.
@@ -177,7 +179,8 @@ func (task *Task3) Next(prev time.Time) time.Time {
 	return time.Time{}
 }
 
-func (task *Task3) Run() {
+func (task *Task3) Run() error {
+	return nil
 }
 
 func TestTimeWheel_Schedule_Zero(t *testing.T) {

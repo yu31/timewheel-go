@@ -110,7 +110,9 @@ func (tw *TimeWheel) submit(t *Timer) {
 		//
 		// Like the standard time.AfterFunc (https://golang.org/pkg/time/#AfterFunc),
 		// always execute the timer's task in its own goroutine.
-		go t.task()
+		go func() {
+			_ = t.task()
+		}()
 	}
 }
 

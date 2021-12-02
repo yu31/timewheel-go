@@ -14,7 +14,7 @@ import (
 // Timer represents a single event. The given task will be executed when the timer expires.
 type Timer struct {
 	expiration int64 // in nanoseconds.
-	task       func()
+	task       RunFunc
 
 	// The bucket that holds the list to which this timer's element belongs.
 	//
