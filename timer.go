@@ -14,7 +14,7 @@ import (
 // Timer represents a single event. The given task will be executed when the timer expires.
 type Timer struct {
 	expiration int64 // in nanoseconds.
-	task       RunFunc
+	task       TaskFunc
 
 	// The bucket that holds the list to which this timer's element belongs.
 	//
@@ -38,7 +38,7 @@ func (t *Timer) setBucket(b *bucket) {
 //
 // The func will be block until the timer has finally been removed from the TimeWheel.
 // But, if the timer t has already expired and the t.task has been started in its own
-// goroutine; Close does not wait for t.task to complete before returning. If the caller
+// goroutine; Close does not wait for t.task to complete before returning. If the invoker
 // needs to know whether t.task is completed, it must coordinate with t.task explicitly.
 func (t *Timer) Close() {
 	for b := t.getBucket(); b != nil; b = t.getBucket() {

@@ -53,7 +53,7 @@ func (b *bucket) delete(t *Timer) bool {
 		//     and in the case, t.getBucket will return "ab".
 		//
 		// In either cases, the return value maybe does not equal to b.
-		// return false to make the caller to try again.
+		// return false to make the invoker to try again.
 		ok = false
 	} else if t.element == nil {
 		// If delete is called after following cases happens:

@@ -73,7 +73,7 @@ func (tw *TimeWheel) Start() {
 // Stop stops the current time wheel.
 //
 // If there is any timer's task being running in its own goroutine, Stop does
-// not wait for the task to complete before returning. If the caller needs to
+// not wait for the task to complete before returning. If the invoker needs to
 // know whether the task is completed, it must coordinate with the task explicitly.
 func (tw *TimeWheel) Stop() {
 	tw.queue.Stop()

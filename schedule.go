@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-type RunFunc func() error
+type TaskFunc func() error
 
 // Schedule represents the execution plan of a task.
 type Schedule interface {
@@ -18,7 +18,7 @@ type Schedule interface {
 	Next(time.Time) time.Time
 
 	// Run will be called when schedule expired.
-	// Notice: timewheel will not process any errors, And only gives it to the caller.
+	// Notice: timewheel will not process any errors, And only gives it to the invoker.
 	Run() error
 }
 
@@ -26,7 +26,7 @@ type Schedule interface {
 // plan scheduled by sh.Next. It returns a Timer that can be used to cancel the
 // call using its Close method.
 //
-// If the caller want to terminate the execution plan halfway, it must
+// If the invoker want to terminate the execution plan halfway, it must
 // close the timer and wait for the timer is closed actually, since in
 // the current implementation, there is a gap between the expiring and the
 // restarting of the timer. The waits time is short since the gap is very small.
@@ -66,18 +66,18 @@ func (tw *TimeWheel) Schedule(sh Schedule) *Timer {
 
 // TimeFunc waits until the appointed time and then calls f in its own goroutine.
 // It returns a Timer that can be used to cancel the call using its Close method.
-func (tw *TimeWheel) TimeFunc(t time.Time, f RunFunc) *Timer {
+func (tw *TimeWheel) TimeFunc(t time.Time, f TaskFunc) *Timer {
 	return tw.expireFunc(t.UnixNano(), f)
 }
 
 // AfterFunc waits for the duration to elapse and then calls f in its own goroutine.
 // It returns a Timer that can be used to cancel the call using its Close method.
-func (tw *TimeWheel) AfterFunc(d time.Duration, f RunFunc) *Timer {
+func (tw *TimeWheel) AfterFunc(d time.Duration, f TaskFunc) *Timer {
 	return tw.expireFunc(time.Now().Add(d).UnixNano(), f)
 }
 
 // expireFunc help creates a Timer of run-once by giving an expiration timestamp.
-func (tw *TimeWheel) expireFunc(expiration int64, f RunFunc) *Timer {
+func (tw *TimeWheel) expireFunc(expiration int64, f TaskFunc) *Timer {
 	t := &Timer{
 		expiration: expiration,
 		task:       f,
