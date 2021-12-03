@@ -9,26 +9,22 @@ func genInterval(i int) time.Duration {
 	return time.Duration((i%10000)+1) * time.Millisecond
 }
 
-type TaskBench1 struct {
+type ScheduleBench1 struct {
 	interval time.Duration
 }
 
-func (task *TaskBench1) Next(prev time.Time) time.Time {
+func (task *ScheduleBench1) Next(prev time.Time) time.Time {
 	return prev.Add(task.interval)
 }
 
-func (task *TaskBench1) Run() error {
-	return nil
-}
-
-func BenchmarkTimeWheel_Schedule(b *testing.B) {
+func BenchmarkTimeWheel_ScheduleFunc(b *testing.B) {
 	tw := New(time.Millisecond, 3)
 	tw.Start()
 	defer tw.Stop()
 
 	for i := 0; i < b.N; i++ {
-		tw.Schedule(&TaskBench1{
-			interval: genInterval(i),
+		tw.scheduleFunc(&ScheduleBench1{interval: genInterval(i)}, func() error {
+			return nil
 		})
 	}
 }

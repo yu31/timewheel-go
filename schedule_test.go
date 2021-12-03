@@ -45,14 +45,15 @@ func TestTimeWheel_expireFunc(t *testing.T) {
 	}
 }
 
-type Task1 struct {
+// ScheduleNext for test case TestTimeWheel_Schedule_Next.
+type ScheduleNext struct {
 	mu    *sync.Mutex
 	seeds []time.Duration
 	index int
 	retC  chan time.Time
 }
 
-func (s *Task1) Next(prev time.Time) time.Time {
+func (s *ScheduleNext) Next(prev time.Time) time.Time {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -64,7 +65,7 @@ func (s *Task1) Next(prev time.Time) time.Time {
 	return next
 }
 
-func (s *Task1) Run() error {
+func (s *ScheduleNext) Run() error {
 	s.retC <- time.Now()
 	return nil
 }
@@ -87,7 +88,7 @@ func TestTimeWheel_Schedule_Next(t *testing.T) {
 
 	retC := make(chan time.Time)
 
-	s := &Task1{
+	sh := &ScheduleNext{
 		mu:    new(sync.Mutex),
 		seeds: seeds,
 		retC:  retC,
@@ -96,7 +97,7 @@ func TestTimeWheel_Schedule_Next(t *testing.T) {
 	lapse := time.Duration(0)
 	start := time.Now()
 
-	timer := tw.Schedule(s)
+	timer := tw.ScheduleJob(sh, sh)
 	require.NotNil(t, timer)
 
 	for _, d := range seeds {
@@ -111,7 +112,8 @@ func TestTimeWheel_Schedule_Next(t *testing.T) {
 	}
 }
 
-type Task2 struct {
+// ScheduleRun for test cases TestTimeWheel_Schedule_Run.
+type ScheduleRun struct {
 	interval time.Duration
 	count    int
 	mu       *sync.Mutex
@@ -120,7 +122,7 @@ type Task2 struct {
 	zero     bool
 }
 
-func (task *Task2) Next(prev time.Time) time.Time {
+func (task *ScheduleRun) Next(prev time.Time) time.Time {
 	task.mu.Lock()
 	defer task.mu.Unlock()
 
@@ -133,7 +135,7 @@ func (task *Task2) Next(prev time.Time) time.Time {
 	return prev.Add(task.interval)
 }
 
-func (task *Task2) Run() error {
+func (task *ScheduleRun) Run() error {
 	task.mu.Lock()
 	defer task.mu.Unlock()
 
@@ -144,7 +146,7 @@ func (task *Task2) Run() error {
 
 // For test the previous is not zero in Next.
 func TestTimeWheel_Schedule_Run(t *testing.T) {
-	task := &Task2{
+	task := &ScheduleRun{
 		interval: time.Millisecond * 5,
 		count:    10,
 		mu:       new(sync.Mutex),
@@ -159,7 +161,7 @@ func TestTimeWheel_Schedule_Run(t *testing.T) {
 	defer tw.Stop()
 	tw.Start()
 
-	timer := tw.Schedule(task)
+	timer := tw.ScheduleJob(task, task)
 	require.Equal(t, tw.queue.Len(), 1)
 
 	task.wg.Wait()
@@ -172,20 +174,22 @@ func TestTimeWheel_Schedule_Run(t *testing.T) {
 	timer.Close()
 }
 
-type Task3 struct {
+// ScheduleZero for test cases TestTimeWheel_Schedule_Zero
+type ScheduleZero struct {
 }
 
-func (task *Task3) Next(prev time.Time) time.Time {
+func (task *ScheduleZero) Next(prev time.Time) time.Time {
 	return time.Time{}
 }
 
-func (task *Task3) Run() error {
+func (task *ScheduleZero) Run() error {
 	return nil
 }
 
 func TestTimeWheel_Schedule_Zero(t *testing.T) {
+	task := &ScheduleZero{}
 	tw := Default()
-	timer := tw.Schedule(&Task3{})
+	timer := tw.ScheduleJob(task, task)
 	require.NotNil(t, timer)
 	require.Equal(t, timer.expiration, int64(0))
 	require.Nil(t, timer.task)

@@ -58,7 +58,7 @@ func (b *bucket) delete(t *Timer) bool {
 	} else if t.element == nil {
 		// If delete is called after following cases happens:
 		//   1. the timer t add by tw.AfterFunc.
-		//   2. the next time is zero in tw.Schedule.
+		//   2. the next time is zero in tw.scheduleFunc.
 		// In either cases, the timer t not in TimeWheel and is nil (set by b.flush),
 		// and it can be considered as a successful deletion.
 	} else {
@@ -92,7 +92,7 @@ func (b *bucket) flush(submit func(*Timer)) {
 
 		// The timer t may not re-enqueue in the following cases:
 		//   1. the timer add by tw.AfterFunc.
-		//   2. the next time is zero in tw.Schedule.
+		//   2. the next time is zero in tw.scheduleFunc.
 		// Thus, set the t.element to nil before submit to prevents unexpected when call t.Close.
 		t.element = nil
 
