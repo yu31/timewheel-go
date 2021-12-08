@@ -9,8 +9,7 @@ import (
 	"time"
 )
 
-// JobFunc declare func to handle task.
-// Notice: timewheel will not process any errors, And only gives it to the invoker.
+// JobFunc is an type adapter that turns a func into an Job.
 type JobFunc func() error
 
 func (f JobFunc) Run() error {
@@ -22,6 +21,13 @@ type Job interface {
 	// Run will be called when schedule expired.
 	// Notice: timewheel will not process any errors, And only gives it to the invoker.
 	Run() error
+}
+
+// ScheduleFunc is a type adapter that turns a function into an Schedule.
+type ScheduleFunc func(t time.Time) time.Time
+
+func (f ScheduleFunc) Next(t time.Time) time.Time {
+	return f(t)
 }
 
 // Schedule represents the execution plan of a job.
@@ -63,7 +69,7 @@ func (tw *TimeWheel) ScheduleJob(sh Schedule, job Job) *Timer {
 				timer.expiration = next2.UnixNano()
 				tw.submit(timer)
 			}
-			
+
 			return job.Run()
 		},
 		b:       nil,

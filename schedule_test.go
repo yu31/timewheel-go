@@ -45,19 +45,16 @@ func TestTimeWheel_TimeFunc(t *testing.T) {
 	}
 }
 
-// ScheduleNextZero for test cases TestTimeWheel_Schedule_Next_Zero
-type ScheduleNextZero struct{}
-
-func (task *ScheduleNextZero) Next(prev time.Time) time.Time {
-	return time.Time{}
-}
-
 func TestTimeWheel_Schedule_Next_Zero(t *testing.T) {
-	task := &ScheduleNextZero{}
 	tw := Default()
-	timer := tw.ScheduleJob(task, JobFunc(func() error {
-		return nil
-	}))
+	timer := tw.ScheduleJob(
+		ScheduleFunc(func(t time.Time) time.Time {
+			return time.Time{}
+		}),
+		JobFunc(func() error {
+			return nil
+		}),
+	)
 	require.NotNil(t, timer)
 	require.Equal(t, timer.expiration, int64(0))
 	require.Nil(t, timer.task)
