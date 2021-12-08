@@ -13,7 +13,7 @@ import (
 
 // Each tick(time span) have a bucket to store all timers(tasks) that belonging to this tick.
 type bucket struct {
-	expiration int64
+	expiration int64 // in nanoseconds.
 	timers     *list.List
 	mu         *sync.Mutex
 	flushMu    *sync.Mutex // represents whether the bucket is performing flush.

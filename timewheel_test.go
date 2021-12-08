@@ -54,7 +54,7 @@ func TestTimeWheel_add(t *testing.T) {
 
 	tick := int64(time.Millisecond * 5)
 	now := time.Now()
-	
+
 	tw := newTimeWheel(tick, 3, now.UnixNano(), dqueue.Default())
 
 	t1 := &Timer{expiration: now.Add(seeds[0]).UnixNano()}
