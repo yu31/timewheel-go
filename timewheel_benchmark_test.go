@@ -17,26 +17,24 @@ func (task *ScheduleBench1) Next(prev time.Time) time.Time {
 	return prev.Add(task.interval)
 }
 
-func BenchmarkTimeWheel_ScheduleFunc(b *testing.B) {
+func BenchmarkTimeWheel_ScheduleJob(b *testing.B) {
 	tw := New(time.Millisecond, 3)
 	tw.Start()
 	defer tw.Stop()
 
 	for i := 0; i < b.N; i++ {
-		tw.scheduleFunc(&ScheduleBench1{interval: genInterval(i)}, func() error {
-			return nil
-		})
+		tw.ScheduleJob(&ScheduleBench1{interval: genInterval(i)}, JobFunc(func() error { return nil }))
 	}
 }
 
-func BenchmarkTimeWheel_AfterFunc(b *testing.B) {
+func BenchmarkTimeWheel_TimeFunc(b *testing.B) {
 	tw := New(time.Millisecond, 3)
 	tw.Start()
 	defer tw.Stop()
 
 	b.Run("tw", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			tw.AfterFunc(genInterval(i), func() error { return nil })
+			tw.TimeFunc(time.Now().Add(genInterval(i)), func() error { return nil })
 		}
 	})
 	b.Run("std", func(b *testing.B) {
@@ -55,7 +53,7 @@ func BenchmarkTimer_StartClose(b *testing.B) {
 		timers := make([]*Timer, 0, b.N)
 
 		for i := 0; i < b.N; i++ {
-			timer := tw.AfterFunc(genInterval(i), func() error { return nil })
+			timer := tw.TimeFunc(time.Now().Add(genInterval(i)), func() error { return nil })
 			timers = append(timers, timer)
 		}
 		for i := 0; i < b.N; i++ {

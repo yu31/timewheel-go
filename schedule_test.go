@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestTimeWheel_expireFunc(t *testing.T) {
+func TestTimeWheel_TimeFunc(t *testing.T) {
 	tw := New(time.Millisecond, 3)
 	tw.Start()
 	defer tw.Stop()
@@ -34,7 +34,7 @@ func TestTimeWheel_expireFunc(t *testing.T) {
 			min := start
 			max := start.Add(d + time.Millisecond*5)
 
-			timer := tw.expireFunc(time.Now().Add(d).UnixNano(), func() error { retC <- time.Now(); return nil })
+			timer := tw.TimeFunc(time.Now().Add(d), func() error { retC <- time.Now(); return nil })
 			require.NotNil(t, timer)
 
 			got := <-retC
@@ -45,12 +45,32 @@ func TestTimeWheel_expireFunc(t *testing.T) {
 	}
 }
 
+// ScheduleNextZero for test cases TestTimeWheel_Schedule_Next_Zero
+type ScheduleNextZero struct{}
+
+func (task *ScheduleNextZero) Next(prev time.Time) time.Time {
+	return time.Time{}
+}
+
+func TestTimeWheel_Schedule_Next_Zero(t *testing.T) {
+	task := &ScheduleNextZero{}
+	tw := Default()
+	timer := tw.ScheduleJob(task, JobFunc(func() error {
+		return nil
+	}))
+	require.NotNil(t, timer)
+	require.Equal(t, timer.expiration, int64(0))
+	require.Nil(t, timer.task)
+	require.True(t, timer.b == nil)
+	require.Nil(t, timer.element)
+	timer.Close()
+}
+
 // ScheduleNext for test case TestTimeWheel_Schedule_Next.
 type ScheduleNext struct {
 	mu    *sync.Mutex
 	seeds []time.Duration
 	index int
-	retC  chan time.Time
 }
 
 func (s *ScheduleNext) Next(prev time.Time) time.Time {
@@ -63,11 +83,6 @@ func (s *ScheduleNext) Next(prev time.Time) time.Time {
 	next := prev.Add(s.seeds[s.index])
 	s.index += 1
 	return next
-}
-
-func (s *ScheduleNext) Run() error {
-	s.retC <- time.Now()
-	return nil
 }
 
 func TestTimeWheel_Schedule_Next(t *testing.T) {
@@ -86,18 +101,19 @@ func TestTimeWheel_Schedule_Next(t *testing.T) {
 		501 * time.Millisecond, // start + 501ms
 	}
 
-	retC := make(chan time.Time)
-
-	sh := &ScheduleNext{
+	schedule := &ScheduleNext{
 		mu:    new(sync.Mutex),
 		seeds: seeds,
-		retC:  retC,
 	}
 
 	lapse := time.Duration(0)
 	start := time.Now()
+	retC := make(chan time.Time)
 
-	timer := tw.ScheduleJob(sh, sh)
+	timer := tw.ScheduleJob(schedule, JobFunc(func() error {
+		retC <- time.Now()
+		return nil
+	}))
 	require.NotNil(t, timer)
 
 	for _, d := range seeds {
@@ -115,7 +131,7 @@ func TestTimeWheel_Schedule_Next(t *testing.T) {
 // ScheduleRun for test cases TestTimeWheel_Schedule_Run.
 type ScheduleRun struct {
 	interval time.Duration
-	count    int
+	maxCount int
 	mu       *sync.Mutex
 	wg       *sync.WaitGroup
 	t        *testing.T
@@ -128,7 +144,7 @@ func (task *ScheduleRun) Next(prev time.Time) time.Time {
 
 	require.False(task.t, prev.IsZero())
 
-	if task.count <= 1 {
+	if task.maxCount <= 1 {
 		task.zero = true
 		return time.Time{}
 	}
@@ -139,7 +155,7 @@ func (task *ScheduleRun) Run() error {
 	task.mu.Lock()
 	defer task.mu.Unlock()
 
-	task.count--
+	task.maxCount--
 	task.wg.Done()
 	return nil
 }
@@ -148,14 +164,14 @@ func (task *ScheduleRun) Run() error {
 func TestTimeWheel_Schedule_Run(t *testing.T) {
 	task := &ScheduleRun{
 		interval: time.Millisecond * 5,
-		count:    10,
+		maxCount: 10,
 		mu:       new(sync.Mutex),
 		wg:       new(sync.WaitGroup),
 		t:        t,
 		zero:     false,
 	}
 
-	task.wg.Add(task.count)
+	task.wg.Add(task.maxCount)
 
 	tw := Default()
 	defer tw.Stop()
@@ -167,33 +183,9 @@ func TestTimeWheel_Schedule_Run(t *testing.T) {
 	task.wg.Wait()
 
 	require.True(t, task.zero)
-	require.Equal(t, task.count, 0)
+	require.Equal(t, task.maxCount, 0)
 	// The task not be re-insert to the queue if return zero time in task.Next.
 	require.Equal(t, tw.queue.Len(), 0)
 
-	timer.Close()
-}
-
-// ScheduleZero for test cases TestTimeWheel_Schedule_Zero
-type ScheduleZero struct {
-}
-
-func (task *ScheduleZero) Next(prev time.Time) time.Time {
-	return time.Time{}
-}
-
-func (task *ScheduleZero) Run() error {
-	return nil
-}
-
-func TestTimeWheel_Schedule_Zero(t *testing.T) {
-	task := &ScheduleZero{}
-	tw := Default()
-	timer := tw.ScheduleJob(task, task)
-	require.NotNil(t, timer)
-	require.Equal(t, timer.expiration, int64(0))
-	require.Nil(t, timer.task)
-	require.True(t, timer.b == nil)
-	require.Nil(t, timer.element)
 	timer.Close()
 }

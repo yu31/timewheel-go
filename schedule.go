@@ -9,9 +9,13 @@ import (
 	"time"
 )
 
-// TaskFunc declare func to handle task.
+// JobFunc declare func to handle task.
 // Notice: timewheel will not process any errors, And only gives it to the invoker.
-type TaskFunc func() error
+type JobFunc func() error
+
+func (f JobFunc) Run() error {
+	return f()
+}
 
 // Job used to execute job.
 type Job interface {
@@ -27,17 +31,7 @@ type Schedule interface {
 	Next(time.Time) time.Time
 }
 
-// ScheduleJob is a wrapper for scheduleFunc.
-func (tw *TimeWheel) ScheduleJob(sh Schedule, job Job) *Timer {
-	return tw.scheduleFunc(sh, job.Run)
-}
-
-// ScheduleFunc is a wrapper for scheduleFunc.
-func (tw *TimeWheel) ScheduleFunc(sh Schedule, f TaskFunc) *Timer {
-	return tw.scheduleFunc(sh, f)
-}
-
-// scheduleFunc calls the job.Run (in its own goroutine) according to the execution
+// ScheduleJob calls the job.Run (in its own goroutine) according to the execution
 // plan scheduled by sh.Next. It returns a Timer that can be used to cancel the
 // call using its Close method.
 //
@@ -51,55 +45,45 @@ func (tw *TimeWheel) ScheduleFunc(sh Schedule, f TaskFunc) *Timer {
 // Afterwards, it will ask the next execution time each time task is about to
 // be executed, and task will be called at the next execution time if the time
 // is non-zero.
-func (tw *TimeWheel) scheduleFunc(sh Schedule, fn TaskFunc) *Timer {
+func (tw *TimeWheel) ScheduleJob(sh Schedule, job Job) *Timer {
 	next1 := sh.Next(time.Now())
 	if next1.IsZero() {
 		// No time is scheduled, return empty timer.
 		return &Timer{}
 	}
-	var t *Timer
-	t = &Timer{
+
+	var timer *Timer
+	timer = &Timer{
 		expiration: next1.UnixNano(),
 		task: func() error {
 			// ScheduleJob the task to execute at the next time if possible.
-			next2 := sh.Next(time.Unix(0, t.expiration))
+			next2 := sh.Next(time.Unix(0, timer.expiration))
 			if !next2.IsZero() {
 				// Resubmit the timer to next cycle.
-				t.expiration = next2.UnixNano()
-				tw.submit(t)
+				timer.expiration = next2.UnixNano()
+				tw.submit(timer)
 			}
-
-			return fn()
+			
+			return job.Run()
 		},
 		b:       nil,
 		element: nil,
 	}
 
-	tw.submit(t)
-	return t
+	tw.submit(timer)
+	return timer
 }
 
 // TimeFunc waits until the appointed time and then calls fn in its own goroutine.
 // It returns a Timer that can be used to cancel the call using its Close method.
-func (tw *TimeWheel) TimeFunc(t time.Time, fn TaskFunc) *Timer {
-	return tw.expireFunc(t.UnixNano(), fn)
-}
-
-// AfterFunc waits for the duration to elapse and then calls fn in its own goroutine.
-// It returns a Timer that can be used to cancel the call using its Close method.
-func (tw *TimeWheel) AfterFunc(d time.Duration, fn TaskFunc) *Timer {
-	return tw.expireFunc(time.Now().Add(d).UnixNano(), fn)
-}
-
-// expireFunc help creates a Timer of run-once by giving an expiration timestamp.
-func (tw *TimeWheel) expireFunc(expiration int64, fn TaskFunc) *Timer {
-	t := &Timer{
-		expiration: expiration,
+func (tw *TimeWheel) TimeFunc(t time.Time, fn JobFunc) *Timer {
+	timer := &Timer{
+		expiration: t.UnixNano(),
 		task:       fn,
 		b:          nil,
 		element:    nil,
 	}
 
-	tw.submit(t)
-	return t
+	tw.submit(timer)
+	return timer
 }
