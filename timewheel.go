@@ -28,6 +28,12 @@ type TimeWheel struct {
 	buckets []*bucket
 	queue   *dqueue.DQueue
 
+	// The time zone. default is time.Local
+	location *time.Location
+
+	// Store the options.
+	opts []Option
+
 	// The higher-level overflow TimeWheel.
 	//
 	// NOTICE: This field may be updated and read concurrently, through tw.add().
@@ -35,33 +41,39 @@ type TimeWheel struct {
 }
 
 // Default creates an TimeWheel with default parameters.
-func Default() *TimeWheel {
-	return New(defaultTick, defaultSize)
+func Default(opts ...Option) *TimeWheel {
+	return New(defaultTick, defaultSize, opts...)
 }
 
 // New creates an TimeWheel with the given tick and wheel size.
 // The value of tick must >= 1ms, the size must >= 1.
-func New(tick time.Duration, size int64) *TimeWheel {
+func New(tick time.Duration, size int64, opts ...Option) *TimeWheel {
 	if tick < time.Millisecond {
 		panic("timewheel: tick must be greater than or equal to 1ms")
 	}
 	if size < 1 {
 		panic("timewheel: size must be greater than 0")
 	}
-	return newTimeWheel(int64(tick), size, time.Now().UnixNano(), dqueue.Default())
+	return newTimeWheel(int64(tick), size, time.Now().UnixNano(), dqueue.Default(), opts...)
 }
 
 // newTimeWheel is an internal helper function that really creates an TimeWheel.
-func newTimeWheel(tick int64, size int64, start int64, queue *dqueue.DQueue) *TimeWheel {
-	return &TimeWheel{
+func newTimeWheel(tick int64, size int64, start int64, queue *dqueue.DQueue, opts ...Option) *TimeWheel {
+	tw := &TimeWheel{
 		tick:     tick,
 		size:     size,
 		span:     tick * size,
 		current:  truncate(start, tick),
 		buckets:  createBuckets(int(size)),
 		queue:    queue,
+		location: time.Local,
+		opts:     opts,
 		overflow: nil,
 	}
+	for _, opt := range opts {
+		opt(tw)
+	}
+	return tw
 }
 
 // Start starts the current time wheel in a goroutine.
@@ -147,7 +159,7 @@ func (tw *TimeWheel) add(t *Timer) bool {
 		overflow = atomic.LoadPointer(&tw.overflow)
 		if overflow == nil {
 			// Creates and save overflow TimeWheel.
-			ntw := newTimeWheel(tw.span, tw.size, current, tw.queue)
+			ntw := newTimeWheel(tw.span, tw.size, current, tw.queue, tw.opts...)
 			atomic.CompareAndSwapPointer(&tw.overflow, nil, unsafe.Pointer(ntw))
 
 			// Load safe to avoid concurrent operations.

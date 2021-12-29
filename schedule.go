@@ -52,7 +52,7 @@ type Schedule interface {
 // be executed, and task will be called at the next execution time if the time
 // is non-zero.
 func (tw *TimeWheel) ScheduleJob(sh Schedule, job Job) *Timer {
-	next1 := sh.Next(time.Now())
+	next1 := sh.Next(time.Now().In(tw.location))
 	if next1.IsZero() {
 		// No time is scheduled, return empty timer.
 		return &Timer{}
@@ -63,7 +63,7 @@ func (tw *TimeWheel) ScheduleJob(sh Schedule, job Job) *Timer {
 		expiration: next1.UnixNano(),
 		task: func() error {
 			// ScheduleJob the task to execute at the next time if possible.
-			next2 := sh.Next(time.Unix(0, timer.expiration))
+			next2 := sh.Next(time.Unix(0, timer.expiration).In(tw.location))
 			if !next2.IsZero() {
 				// Resubmit the timer to next cycle.
 				timer.expiration = next2.UnixNano()
@@ -84,7 +84,7 @@ func (tw *TimeWheel) ScheduleJob(sh Schedule, job Job) *Timer {
 // It returns a Timer that can be used to cancel the call using its Close method.
 func (tw *TimeWheel) TimeFunc(t time.Time, fn JobFunc) *Timer {
 	timer := &Timer{
-		expiration: t.UnixNano(),
+		expiration: t.In(tw.location).UnixNano(),
 		task:       fn,
 		b:          nil,
 		element:    nil,
