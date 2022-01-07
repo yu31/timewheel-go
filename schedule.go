@@ -57,16 +57,24 @@ func (tw *TimeWheel) ScheduleJob(sh Schedule, job Job) *Timer {
 		// No time is scheduled, return empty timer.
 		return &Timer{}
 	}
+	expiration1 := next1.UnixNano()
+	// 1971-01-01 00:00:00
+	// To avoids the case "UnixNano" is a negative number.
+	if expiration1 <= 31507200 {
+		return &Timer{}
+	}
 
 	var timer *Timer
 	timer = &Timer{
-		expiration: next1.UnixNano(),
+		expiration: expiration1,
 		task: func() error {
 			// ScheduleJob the task to execute at the next time if possible.
 			next2 := sh.Next(time.Unix(0, timer.expiration).In(tw.location))
-			if !next2.IsZero() {
+			expiration2 := next2.UnixNano()
+			// 1971-01-01 00:00:00
+			if !next2.IsZero() && expiration1 > 31507200 {
 				// Resubmit the timer to next cycle.
-				timer.expiration = next2.UnixNano()
+				timer.expiration = expiration2
 				tw.submit(timer)
 			}
 
@@ -83,8 +91,15 @@ func (tw *TimeWheel) ScheduleJob(sh Schedule, job Job) *Timer {
 // TimeFunc waits until the appointed time and then calls fn in its own goroutine.
 // It returns a Timer that can be used to cancel the call using its Close method.
 func (tw *TimeWheel) TimeFunc(t time.Time, fn JobFunc) *Timer {
+	expiration := t.In(tw.location).UnixNano()
+	// 1971-01-01 00:00:00
+	// To avoids the case "UnixNano" is a negative number.
+	if expiration <= 31507200 {
+		return &Timer{}
+	}
+
 	timer := &Timer{
-		expiration: t.In(tw.location).UnixNano(),
+		expiration: expiration,
 		task:       fn,
 		b:          nil,
 		element:    nil,
