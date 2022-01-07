@@ -9,6 +9,10 @@ import (
 	"time"
 )
 
+// In timewheel, use the UnixNano as the expiration time. Thus, the max
+// expiration time is 2262-01-01 08:00:00 +0800 CST.
+const maxExpiration = 9214646400000000000
+
 // JobFunc is an type adapter that turns a func into an Job.
 type JobFunc func() error
 
@@ -58,10 +62,8 @@ func (tw *TimeWheel) ScheduleJob(sh Schedule, job Job) *Timer {
 		return &Timer{}
 	}
 	expiration1 := next1.UnixNano()
-	// 1971-01-01 00:00:00
-	// To avoids the case "UnixNano" is a negative number.
-	if expiration1 <= 31507200 {
-		return &Timer{}
+	if expiration1 < 0 { // Means overflows int64, set it to maxExpiration
+		expiration1 = maxExpiration
 	}
 
 	var timer *Timer
@@ -70,9 +72,11 @@ func (tw *TimeWheel) ScheduleJob(sh Schedule, job Job) *Timer {
 		task: func() error {
 			// ScheduleJob the task to execute at the next time if possible.
 			next2 := sh.Next(time.Unix(0, timer.expiration).In(tw.location))
-			expiration2 := next2.UnixNano()
-			// 1971-01-01 00:00:00
-			if !next2.IsZero() && expiration1 > 31507200 {
+			if !next2.IsZero() {
+				expiration2 := next2.UnixNano()
+				if expiration2 < 0 { // Means overflows int64, set it to maxExpiration
+					expiration2 = maxExpiration
+				}
 				// Resubmit the timer to next cycle.
 				timer.expiration = expiration2
 				tw.submit(timer)
@@ -91,15 +95,19 @@ func (tw *TimeWheel) ScheduleJob(sh Schedule, job Job) *Timer {
 // TimeFunc waits until the appointed time and then calls fn in its own goroutine.
 // It returns a Timer that can be used to cancel the call using its Close method.
 func (tw *TimeWheel) TimeFunc(t time.Time, fn JobFunc) *Timer {
-	expiration := t.In(tw.location).UnixNano()
-	// 1971-01-01 00:00:00
-	// To avoids the case "UnixNano" is a negative number.
-	if expiration <= 31507200 {
-		return &Timer{}
+	expiration1 := t.In(tw.location).UnixNano()
+	if expiration1 < 0 { // Means overflows int64, set it to maxExpiration
+		expiration1 = maxExpiration
 	}
 
+	//// 1971-01-01 00:00:00
+	//// To avoids the case "UnixNano" is a negative number.
+	//if expiration1 <= 31507200 {
+	//	return &Timer{}
+	//}
+
 	timer := &Timer{
-		expiration: expiration,
+		expiration: expiration1,
 		task:       fn,
 		b:          nil,
 		element:    nil,
