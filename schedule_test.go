@@ -186,3 +186,19 @@ func TestTimeWheel_Schedule_Run(t *testing.T) {
 
 	timer.Close()
 }
+
+func TestTimeWheel_Schedule_Next_MaxExpiration(t *testing.T) {
+	tw := Default()
+	defer tw.Stop()
+	tw.Start()
+
+	schFunc := ScheduleFunc(func(t time.Time) time.Time {
+		t1 := time.Unix(0, maxExpirationNs)
+		return t1
+	})
+	jobFunc := JobFunc(func() error {
+		return nil
+	})
+
+	tw.ScheduleJob(schFunc, jobFunc)
+}

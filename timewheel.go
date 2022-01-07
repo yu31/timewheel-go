@@ -20,10 +20,10 @@ const (
 
 // TimeWheel is an implementation of Hierarchical Timing Wheels.
 type TimeWheel struct {
-	tick    int64 // The time span of each unit, in nanoseconds.
+	tick    int64 // The time span of each unit, in milliseconds(nanoseconds/time.Millisecond).
 	size    int64 // The size of time wheel of each layer.
-	span    int64 // The time span of each layer, in nanoseconds.
-	current int64 // The current time of time wheel, in nanoseconds.
+	span    int64 // The time span of each layer, in milliseconds(nanoseconds/time.Millisecond).
+	current int64 // The current time of time wheel, in milliseconds(nanoseconds/time.Millisecond).
 
 	buckets []*bucket
 	queue   *dqueue.DQueue
@@ -54,16 +54,19 @@ func New(tick time.Duration, size int64, opts ...Option) *TimeWheel {
 	if size < 1 {
 		panic("timewheel: size must be greater than 0")
 	}
-	return newTimeWheel(int64(tick), size, time.Now().UnixNano(), dqueue.Default(), opts...)
+	tickMs := durationToMs(tick)
+	startMs := timeToMs(time.Now())
+
+	return newTimeWheel(tickMs, size, startMs, dqueue.Default(), opts...)
 }
 
 // newTimeWheel is an internal helper function that really creates an TimeWheel.
-func newTimeWheel(tick int64, size int64, start int64, queue *dqueue.DQueue, opts ...Option) *TimeWheel {
+func newTimeWheel(tickMs int64, size int64, startMs int64, queue *dqueue.DQueue, opts ...Option) *TimeWheel {
 	tw := &TimeWheel{
-		tick:     tick,
+		tick:     tickMs,
 		size:     size,
-		span:     tick * size,
-		current:  truncate(start, tick),
+		span:     tickMs * size,
+		current:  truncate(startMs, tickMs),
 		buckets:  createBuckets(int(size)),
 		queue:    queue,
 		location: time.Local,

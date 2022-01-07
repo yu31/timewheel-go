@@ -14,9 +14,9 @@ func TestNew(t *testing.T) {
 	tick := time.Second
 	tw := New(tick, size)
 	require.NotNil(t, tw)
-	require.Equal(t, tw.tick, int64(tick))
+	require.Equal(t, tw.tick, durationToMs(tick))
 	require.Equal(t, tw.size, size)
-	require.Equal(t, tw.span, int64(tick)*size)
+	require.Equal(t, tw.span, durationToMs(tick)*size)
 	require.Greater(t, tw.current, int64(0))
 	require.Equal(t, len(tw.buckets), int(size))
 	require.NotNil(t, tw.queue)
@@ -29,7 +29,7 @@ func TestDefault(t *testing.T) {
 	tw := Default()
 	require.NotNil(t, tw)
 	require.Equal(t, tw.size, defaultSize)
-	require.Equal(t, tw.tick, int64(defaultTick))
+	require.Equal(t, tw.tick, durationToMs(defaultTick))
 	require.Equal(t, tw.location, time.Local)
 	require.Nil(t, tw.opts)
 }

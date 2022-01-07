@@ -9,9 +9,10 @@ import (
 	"time"
 )
 
+// maxExpirationNs is the max nano seconds timestamp.
 // In timewheel, use the UnixNano as the expiration time. Thus, the max
 // expiration time is 2262-01-01 08:00:00 +0800 CST.
-const maxExpiration = 9214646400000000000
+const maxExpirationNs = 9214646400000000000
 
 // JobFunc is an type adapter that turns a func into an Job.
 type JobFunc func() error
@@ -61,22 +62,16 @@ func (tw *TimeWheel) ScheduleJob(sh Schedule, job Job) *Timer {
 		// No time is scheduled, return empty timer.
 		return &Timer{}
 	}
-	expiration1 := next1.UnixNano()
-	if expiration1 < 0 { // Means overflows int64, set it to maxExpiration
-		expiration1 = maxExpiration
-	}
+	expiration1 := timeToMs(next1)
 
 	var timer *Timer
 	timer = &Timer{
 		expiration: expiration1,
 		task: func() error {
 			// ScheduleJob the task to execute at the next time if possible.
-			next2 := sh.Next(time.Unix(0, timer.expiration).In(tw.location))
+			next2 := sh.Next(msToTime(timer.expiration)).In(tw.location)
 			if !next2.IsZero() {
-				expiration2 := next2.UnixNano()
-				if expiration2 < 0 { // Means overflows int64, set it to maxExpiration
-					expiration2 = maxExpiration
-				}
+				expiration2 := timeToMs(next2)
 				// Resubmit the timer to next cycle.
 				timer.expiration = expiration2
 				tw.submit(timer)
@@ -95,17 +90,7 @@ func (tw *TimeWheel) ScheduleJob(sh Schedule, job Job) *Timer {
 // TimeFunc waits until the appointed time and then calls fn in its own goroutine.
 // It returns a Timer that can be used to cancel the call using its Close method.
 func (tw *TimeWheel) TimeFunc(t time.Time, fn JobFunc) *Timer {
-	expiration1 := t.In(tw.location).UnixNano()
-	if expiration1 < 0 { // Means overflows int64, set it to maxExpiration
-		expiration1 = maxExpiration
-	}
-
-	//// 1971-01-01 00:00:00
-	//// To avoids the case "UnixNano" is a negative number.
-	//if expiration1 <= 31507200 {
-	//	return &Timer{}
-	//}
-
+	expiration1 := timeToMs(t.In(tw.location))
 	timer := &Timer{
 		expiration: expiration1,
 		task:       fn,
