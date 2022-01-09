@@ -56,8 +56,11 @@ func New(tick time.Duration, size int64, opts ...Option) *TimeWheel {
 	}
 	tickMs := durationToMs(tick)
 	startMs := timeToMs(time.Now())
+	dq := dqueue.Default().WithDelayer(func(expiration int64) (delay time.Duration) {
+		return time.Duration(expiration - timeToMs(time.Now()))
+	})
 
-	return newTimeWheel(tickMs, size, startMs, dqueue.Default(), opts...)
+	return newTimeWheel(tickMs, size, startMs, dq, opts...)
 }
 
 // newTimeWheel is an internal helper function that really creates an TimeWheel.
@@ -95,8 +98,8 @@ func (tw *TimeWheel) Stop() {
 }
 
 // process the expiration's bucket
-func (tw *TimeWheel) process(msg *dqueue.Message) {
-	b := msg.Value.(*bucket)
+func (tw *TimeWheel) process(val dqueue.Value) {
+	b := val.(*bucket)
 	tw.advance(b.getExpiration())
 
 	b.flush(tw.submit)
@@ -152,7 +155,7 @@ func (tw *TimeWheel) add(t *Timer) bool {
 			// Any further calls to set the expiration within the same wheel cycle will
 			// pass in the same value and hence return false, thus the bucket with the
 			// same expiration will not be enqueued multiple times.
-			tw.queue.Expire(b.getExpiration(), b)
+			tw.queue.Offer(b.getExpiration(), b)
 		}
 		return true
 	} else {

@@ -62,18 +62,16 @@ func (tw *TimeWheel) ScheduleJob(sh Schedule, job Job) *Timer {
 		// No time is scheduled, return empty timer.
 		return &Timer{}
 	}
-	expiration1 := timeToMs(next1)
 
 	var timer *Timer
 	timer = &Timer{
-		expiration: expiration1,
+		expiration: timeToMs(next1),
 		task: func() error {
 			// ScheduleJob the task to execute at the next time if possible.
-			next2 := sh.Next(msToTime(timer.expiration)).In(tw.location)
+			next2 := sh.Next(msToTime(timer.expiration).In(tw.location))
 			if !next2.IsZero() {
-				expiration2 := timeToMs(next2)
 				// Resubmit the timer to next cycle.
-				timer.expiration = expiration2
+				timer.expiration = timeToMs(next2)
 				tw.submit(timer)
 			}
 
@@ -90,9 +88,8 @@ func (tw *TimeWheel) ScheduleJob(sh Schedule, job Job) *Timer {
 // TimeFunc waits until the appointed time and then calls fn in its own goroutine.
 // It returns a Timer that can be used to cancel the call using its Close method.
 func (tw *TimeWheel) TimeFunc(t time.Time, fn JobFunc) *Timer {
-	expiration1 := timeToMs(t.In(tw.location))
 	timer := &Timer{
-		expiration: expiration1,
+		expiration: timeToMs(t),
 		task:       fn,
 		b:          nil,
 		element:    nil,

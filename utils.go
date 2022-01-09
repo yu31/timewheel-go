@@ -11,8 +11,8 @@ func truncate(x, m int64) int64 {
 	return x - x%m
 }
 
-func durationToMs(d time.Duration) int64 {
-	return int64(d / time.Millisecond)
+func durationToMs(t time.Duration) int64 {
+	return int64(t / time.Millisecond)
 }
 
 // timeToMs returns an integer number, which represents t in milliseconds.
