@@ -1,6 +1,7 @@
 package timewheel
 
 import (
+	"context"
 	"testing"
 	"time"
 )
@@ -23,7 +24,7 @@ func BenchmarkTimeWheel_ScheduleJob(b *testing.B) {
 	defer tw.Stop()
 
 	for i := 0; i < b.N; i++ {
-		tw.ScheduleJob(&ScheduleBench1{interval: genInterval(i)}, JobFunc(func() error { return nil }))
+		tw.ScheduleJob(context.Background(), &ScheduleBench1{interval: genInterval(i)}, JobFunc(func(ctx context.Context) error { return nil }))
 	}
 }
 
@@ -34,7 +35,7 @@ func BenchmarkTimeWheel_TimeFunc(b *testing.B) {
 
 	b.Run("tw", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			tw.TimeFunc(time.Now().Add(genInterval(i)), func() error { return nil })
+			tw.TimeFunc(context.Background(), time.Now().Add(genInterval(i)), func(ctx context.Context) error { return nil })
 		}
 	})
 	b.Run("std", func(b *testing.B) {
@@ -53,7 +54,7 @@ func BenchmarkTimer_StartClose(b *testing.B) {
 		timers := make([]*Timer, 0, b.N)
 
 		for i := 0; i < b.N; i++ {
-			timer := tw.TimeFunc(time.Now().Add(genInterval(i)), func() error { return nil })
+			timer := tw.TimeFunc(context.Background(), time.Now().Add(genInterval(i)), func(ctx context.Context) error { return nil })
 			timers = append(timers, timer)
 		}
 		for i := 0; i < b.N; i++ {

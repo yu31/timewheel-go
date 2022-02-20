@@ -6,6 +6,7 @@
 package timewheel
 
 import (
+	"context"
 	"time"
 )
 
@@ -15,17 +16,17 @@ import (
 const maxExpirationNs = 9214646400000000000
 
 // JobFunc is an type adapter that turns a func into an Job.
-type JobFunc func() error
+type JobFunc func(ctx context.Context) error
 
-func (f JobFunc) Run() error {
-	return f()
+func (f JobFunc) Run(ctx context.Context) error {
+	return f(ctx)
 }
 
 // Job used to execute job.
 type Job interface {
 	// Run will be called when schedule expired.
 	// Notice: timewheel will not process any errors, And only gives it to the invoker.
-	Run() error
+	Run(ctx context.Context) error
 }
 
 // ScheduleFunc is a type adapter that turns a function into an Schedule.
@@ -53,32 +54,36 @@ type Schedule interface {
 //
 // Internally, Schedule will ask the first execution time (by calling
 // sh.Next) initially, and create a timer if the execution time is non-zero.
-// Afterwards, it will ask the next execution time each time task is about to
-// be executed, and task will be called at the next execution time if the time
+// Afterwards, it will ask the next execution time each time jobFunc is about to
+// be executed, and jobFunc will be called at the next execution time if the time
 // is non-zero.
-func (tw *TimeWheel) ScheduleJob(sh Schedule, job Job) *Timer {
+func (tw *TimeWheel) ScheduleJob(ctx context.Context, sh Schedule, job Job) *Timer {
+	ctxCancel, cancelFunc := context.WithCancel(ctx)
+	timer := &Timer{
+		ctxCancel:  ctxCancel,
+		cancelFunc: cancelFunc,
+		expiration: 0,
+		jobFunc:    nil,
+		b:          nil,
+		element:    nil,
+	}
+
 	next1 := sh.Next(time.Now().In(tw.location))
 	if next1.IsZero() {
 		// No time is scheduled, return empty timer.
-		return &Timer{}
+		return timer
 	}
 
-	var timer *Timer
-	timer = &Timer{
-		expiration: timeToMs(next1),
-		task: func() error {
-			// ScheduleJob the task to execute at the next time if possible.
-			next2 := sh.Next(msToTime(timer.expiration).In(tw.location))
-			if !next2.IsZero() {
-				// Resubmit the timer to next cycle.
-				timer.expiration = timeToMs(next2)
-				tw.submit(timer)
-			}
-
-			return job.Run()
-		},
-		b:       nil,
-		element: nil,
+	timer.expiration = timeToMs(next1)
+	timer.jobFunc = func(ctx context.Context) error {
+		// ScheduleJob the jobFunc to execute at the next time if possible.
+		next2 := sh.Next(msToTime(timer.expiration).In(tw.location))
+		if !next2.IsZero() {
+			// Resubmit the timer to next cycle.
+			timer.expiration = timeToMs(next2)
+			tw.submit(timer)
+		}
+		return job.Run(ctx)
 	}
 
 	tw.submit(timer)
@@ -87,10 +92,14 @@ func (tw *TimeWheel) ScheduleJob(sh Schedule, job Job) *Timer {
 
 // TimeFunc waits until the appointed time and then calls fn in its own goroutine.
 // It returns a Timer that can be used to cancel the call using its Close method.
-func (tw *TimeWheel) TimeFunc(t time.Time, fn JobFunc) *Timer {
+func (tw *TimeWheel) TimeFunc(ctx context.Context, t time.Time, fn JobFunc) *Timer {
+	ctxCancel, cancelFunc := context.WithCancel(ctx)
+
 	timer := &Timer{
+		ctxCancel:  ctxCancel,
+		cancelFunc: cancelFunc,
 		expiration: timeToMs(t),
-		task:       fn,
+		jobFunc:    fn,
 		b:          nil,
 		element:    nil,
 	}

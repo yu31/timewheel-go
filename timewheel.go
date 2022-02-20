@@ -90,9 +90,9 @@ func (tw *TimeWheel) Start() {
 
 // Stop stops the current time wheel.
 //
-// If there is any timer's task being running in its own goroutine, Stop does
-// not wait for the task to complete before returning. If the invoker needs to
-// know whether the task is completed, it must coordinate with the task explicitly.
+// If there is any timer's jobFunc being running in its own goroutine, Stop does
+// not wait for the jobFunc to complete before returning. If the invoker needs to
+// know whether the jobFunc is completed, it must coordinate with the jobFunc explicitly.
 func (tw *TimeWheel) Stop() {
 	tw.queue.Stop()
 }
@@ -121,15 +121,15 @@ func (tw *TimeWheel) advance(expiration int64) {
 }
 
 // submit inserts the timer t into the current timing wheel, or run the
-// timer's task if it has been expired.
+// timer's jobFunc if it has been expired.
 func (tw *TimeWheel) submit(t *Timer) {
 	if !tw.add(t) {
-		// Actually execute the task func.
+		// Actually execute the jobFunc func.
 		//
 		// Like the standard time.AfterFunc (https://golang.org/pkg/time/#AfterFunc),
-		// always execute the timer's task in its own goroutine.
+		// always execute the timer's jobFunc in its own goroutine.
 		go func() {
-			_ = t.task()
+			_ = t.jobFunc(t.ctxCancel)
 		}()
 	}
 }

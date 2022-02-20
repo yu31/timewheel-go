@@ -1,6 +1,7 @@
 package timewheel
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"testing"
@@ -34,7 +35,7 @@ func TestTimeWheel_TimeFunc(t *testing.T) {
 			min := start
 			max := start.Add(d + time.Millisecond*5)
 
-			timer := tw.TimeFunc(time.Now().Add(d), func() error { retC <- time.Now(); return nil })
+			timer := tw.TimeFunc(context.Background(), time.Now().Add(d), func(ctx context.Context) error { retC <- time.Now(); return nil })
 			require.NotNil(t, timer)
 
 			got := <-retC
@@ -48,16 +49,17 @@ func TestTimeWheel_TimeFunc(t *testing.T) {
 func TestTimeWheel_Schedule_Next_Zero(t *testing.T) {
 	tw := Default()
 	timer := tw.ScheduleJob(
+		context.Background(),
 		ScheduleFunc(func(t time.Time) time.Time {
 			return time.Time{}
 		}),
-		JobFunc(func() error {
+		JobFunc(func(ctx context.Context) error {
 			return nil
 		}),
 	)
 	require.NotNil(t, timer)
 	require.Equal(t, timer.expiration, int64(0))
-	require.Nil(t, timer.task)
+	require.Nil(t, timer.jobFunc)
 	require.True(t, timer.b == nil)
 	require.Nil(t, timer.element)
 	timer.Close()
@@ -107,7 +109,7 @@ func TestTimeWheel_Schedule_Next(t *testing.T) {
 	start := time.Now()
 	retC := make(chan time.Time)
 
-	timer := tw.ScheduleJob(schedule, JobFunc(func() error {
+	timer := tw.ScheduleJob(context.Background(), schedule, JobFunc(func(ctx context.Context) error {
 		retC <- time.Now()
 		return nil
 	}))
@@ -148,7 +150,7 @@ func (task *ScheduleRun) Next(prev time.Time) time.Time {
 	return prev.Add(task.interval)
 }
 
-func (task *ScheduleRun) Run() error {
+func (task *ScheduleRun) Run(ctx context.Context) error {
 	task.mu.Lock()
 	defer task.mu.Unlock()
 
@@ -174,14 +176,14 @@ func TestTimeWheel_Schedule_Run(t *testing.T) {
 	defer tw.Stop()
 	tw.Start()
 
-	timer := tw.ScheduleJob(task, task)
+	timer := tw.ScheduleJob(context.Background(), task, task)
 	require.Equal(t, tw.queue.Len(), 1)
 
 	task.wg.Wait()
 
 	require.True(t, task.zero)
 	require.Equal(t, task.maxCount, 0)
-	// The task not be re-insert to the queue if return zero time in task.Next.
+	// The jobFunc not be re-insert to the queue if return zero time in jobFunc.Next.
 	require.Equal(t, tw.queue.Len(), 0)
 
 	timer.Close()
@@ -196,9 +198,9 @@ func TestTimeWheel_Schedule_Next_MaxExpiration(t *testing.T) {
 		t1 := time.Unix(0, maxExpirationNs)
 		return t1
 	})
-	jobFunc := JobFunc(func() error {
+	jobFunc := JobFunc(func(ctx context.Context) error {
 		return nil
 	})
 
-	tw.ScheduleJob(schFunc, jobFunc)
+	tw.ScheduleJob(context.Background(), schFunc, jobFunc)
 }

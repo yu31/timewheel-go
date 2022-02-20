@@ -7,14 +7,23 @@ package timewheel
 
 import (
 	"container/list"
+	"context"
 	"sync/atomic"
 	"unsafe"
 )
 
-// Timer represents a single event. The given task will be executed when the timer expires.
+// Timer represents a single event. The given jobFunc will be executed when the timer expires.
 type Timer struct {
-	expiration int64 // in nanoseconds.
-	task       JobFunc
+	// ctxCancel is create with context.WithCancel
+	ctxCancel context.Context
+
+	// cancelFunc is used in Close.
+	cancelFunc context.CancelFunc
+
+	// expiration is the expire time in milliseconds
+	expiration int64
+
+	jobFunc JobFunc
 
 	// The bucket that holds the list to which this timer's element belongs.
 	//
@@ -37,9 +46,9 @@ func (t *Timer) setBucket(b *bucket) {
 // Close prevents the Timer from firing.
 //
 // The func will be block until the timer has finally been removed from the TimeWheel.
-// But, if the timer t has already expired and the t.task has been started in its own
-// goroutine; Close does not wait for t.task to complete before returning. If the invoker
-// needs to know whether t.task is completed, it must coordinate with t.task explicitly.
+// But, if the timer t has already expired and the t.jobFunc has been started in its own
+// goroutine; Close does not wait for t.jobFunc to complete before returning. If the invoker
+// needs to know whether t.jobFunc is completed, it must coordinate with t.jobFunc explicitly.
 func (t *Timer) Close() {
 	for b := t.getBucket(); b != nil; b = t.getBucket() {
 		// The b.delete may fail if t's bucket has changed due to TimeWheel call the b.flush.
@@ -49,4 +58,5 @@ func (t *Timer) Close() {
 			break
 		}
 	}
+	t.cancelFunc()
 }
