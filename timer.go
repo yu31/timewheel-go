@@ -14,13 +14,13 @@ import (
 
 // Timer represents a single event. The given jobFunc will be executed when the timer expires.
 type Timer struct {
-	// ctxCancel is create with context.WithCancel
+	// ctxCancel is created with context.WithCancel
 	ctxCancel context.Context
 
 	// cancelFunc is used in Close.
 	cancelFunc context.CancelFunc
 
-	// expiration is the expire time in milliseconds
+	// expiration is the expiry time in milliseconds
 	expiration int64
 
 	jobFunc JobFunc
@@ -45,7 +45,7 @@ func (t *Timer) setBucket(b *bucket) {
 
 // Close prevents the Timer from firing.
 //
-// The func will be block until the timer has finally been removed from the TimeWheel.
+// The func will be blocked until the timer has finally been removed from the TimeWheel.
 // But, if the timer t has already expired and the t.jobFunc has been started in its own
 // goroutine; Close does not wait for t.jobFunc to complete before returning. If the invoker
 // needs to know whether t.jobFunc is completed, it must coordinate with t.jobFunc explicitly.

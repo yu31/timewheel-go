@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"github.com/yu31/dqueue"
+	"github.com/yu31/dqueue-go"
 )
 
 func TestNew(t *testing.T) {

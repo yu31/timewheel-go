@@ -1,5 +1,5 @@
 # timewheel
-A implementation of Hierarchical Timing Wheels in GoLang.
+An implementation of Hierarchical Timing Wheels in GoLang.
 
 ## References
 

@@ -10,7 +10,7 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/yu31/dqueue"
+	"github.com/yu31/dqueue-go"
 )
 
 const (

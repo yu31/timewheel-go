@@ -25,7 +25,7 @@ func timeToMs(t time.Time) int64 {
 }
 
 // msToTime returns the UTC time corresponding to the given Unix time,
-// t milliseconds since January 1, 1970 UTC.
+// t milliseconds since January 1, 1970, UTC.
 func msToTime(t int64) time.Time {
 	return time.Unix(0, t*int64(time.Millisecond))
 }

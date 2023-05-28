@@ -10,12 +10,12 @@ import (
 	"time"
 )
 
-// maxExpirationNs is the max nano seconds timestamp.
+// maxExpirationNs is the max nanoseconds timestamp.
 // In timewheel, use the UnixNano as the expiration time. Thus, the max
 // expiration time is 2262-01-01 08:00:00 +0800 CST.
 const maxExpirationNs = 9214646400000000000
 
-// JobFunc is an type adapter that turns a func into an Job.
+// JobFunc is a type adapter that turns a func into an Job.
 type JobFunc func(ctx context.Context) error
 
 func (f JobFunc) Run(ctx context.Context) error {
